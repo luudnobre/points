@@ -2,8 +2,19 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RH • Separador de Pontos</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+  />
+
+  <title>RH • pontos </title>
+
+  <!-- favicon 💻 -->
+  <link
+    rel="icon"
+    href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="52">💻</text></svg>'
+  />
+
   <link rel="stylesheet" href="style.css" />
 
   <!-- PDF.js -->
@@ -12,17 +23,25 @@
   <!-- pdf-lib -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
+
 <body>
   <div class="app">
+
     <header class="topbar">
       <div>
-        <span class="tag">RH • sistema local</span>
-        <h1>Separador de PDF por nome</h1>
+        <span class="tag">RH • system </span>
+
+        <h1>Separador de PDF por nomes 🔎 </h1>
+
         <p class="subtitle">
-          Faça upload do PDF completo, digite os nomes e gere os arquivos separados.
+          Faça upload do PDF completo, informe os nomes e gere um único
+          PDF com todas as páginas encontradas.
         </p>
       </div>
-      <div class="status" id="statusBadge">Pronto</div>
+
+      <div class="status" id="statusBadge">
+        Status: Pronto 🟢
+      </div>
     </header>
 
     <section class="card">
@@ -30,23 +49,30 @@
         <div class="block">
           <label class="label" for="pdfFile">PDF completo</label>
 
-          <input id="pdfFile" class="file-input" type="file" accept=".pdf,application/pdf" />
+          <input
+            id="pdfFile"
+            class="file-input"
+            type="file"
+            accept=".pdf,application/pdf"
+          />
 
-          <label for="pdfFile" class="upload-button">Selecionar PDF</label>
+          <label for="pdfFile" class="upload-button">
+            Selecionar PDF
+          </label>
 
-          <div class="file-info" id="fileInfo">Nenhum arquivo selecionado</div>
+          <div class="file-info" id="fileInfo">
+            Nenhum arquivo selecionado
+          </div>
         </div>
 
         <div class="block">
-          <label class="label" for="namesInput">Nomes para separar</label>
+          <label class="label" for="namesInput">
+            Nomes para separar
+          </label>
+
           <textarea
             id="namesInput"
-            placeholder="Digite um nome por linha
-
-Exemplo:
-MARIA SILVA
-JOAO PEDRO
-ANA CLARA"
+            placeholder="Digite os nomes aqui..."
           ></textarea>
         </div>
       </div>
@@ -54,25 +80,39 @@ ANA CLARA"
 
     <section class="card">
       <div class="actions">
-        <button id="processBtn" class="btn primary">Separar PDFs</button>
-        <button id="resetBtn" class="btn secondary">Limpar</button>
-        <button id="exampleBtn" class="btn ghost">Exemplo</button>
+        <button id="processBtn" class="btn primary">
+          Gerar PDF único
+        </button>
+
+        <button id="resetBtn" class="btn secondary">
+          Limpar
+        </button>
+
+        <button id="exampleBtn" class="btn ghost">
+          Exemplo
+        </button>
       </div>
 
       <div class="progress-area">
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill"></div>
         </div>
-        <p class="progress-text" id="progressText">Aguardando ação</p>
+
+        <p class="progress-text" id="progressText">
+          Aguardando ação
+        </p>
       </div>
     </section>
 
     <section class="card">
       <div class="section-head">
-        <h2>Resultados</h2>
+        <h2>Resultado</h2>
       </div>
+
       <div id="resultsList" class="results-list">
-        <p class="empty">Os PDFs gerados aparecerão aqui.</p>
+        <p class="empty">
+          O PDF gerado aparecerá aqui.
+        </p>
       </div>
     </section>
 
@@ -80,10 +120,27 @@ ANA CLARA"
       <div class="section-head">
         <h2>Log</h2>
       </div>
+
       <div class="log-box" id="logBox"></div>
     </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <a
+          href="https://github.com/luudnobre"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="footer-button"
+        >
+          <span class="footer-label">CODED BY LUD</span>
+          <span class="footer-divider">•</span>
+          <span class="footer-link">GitHub</span>
+        </a>
+      </footer>
+
   </div>
 
   <script src="script.js"></script>
+
 </body>
 </html>
