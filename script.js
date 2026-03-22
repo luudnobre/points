@@ -81,14 +81,17 @@ function createMatcher(name) {
       if (!strongParts.length) return false;
 
       const foundCount = strongParts.filter(part => text.includes(part)).length;
-
       return foundCount === strongParts.length;
     }
   };
 }
 
 function clearResults() {
-  resultsList.innerHTML = `<p class="empty">Os PDFs gerados aparecerão aqui.</p>`;
+  resultsList.innerHTML = `
+    <p class="empty">
+      O PDF gerado aparecerá aqui depois do processamento.
+    </p>
+  `;
 }
 
 function setFile(file) {
@@ -100,6 +103,7 @@ function setFile(file) {
     selectedFile = null;
     fileInfo.textContent = "Arquivo inválido. Escolha um PDF.";
     log("O arquivo selecionado não é um PDF válido.", "error");
+    setStatus("Erro");
     return;
   }
 
@@ -188,9 +192,6 @@ function renderSinglePdfResult(pageNumbers, foundNames, notFoundNames, pdfBytes)
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
-  const card = document.createElement("div");
-  card.className = "result-card";
-
   const foundNamesText = foundNames.length
     ? foundNames.map(item => `${item.name} (${item.pages.join(", ")})`).join(" | ")
     : "Nenhum nome encontrado";
@@ -199,6 +200,8 @@ function renderSinglePdfResult(pageNumbers, foundNames, notFoundNames, pdfBytes)
     ? notFoundNames.join(", ")
     : "Nenhum";
 
+  const card = document.createElement("div");
+  card.className = "result-card";
   card.innerHTML = `
     <div>
       <div class="result-name">PDF único gerado</div>
@@ -211,11 +214,17 @@ function renderSinglePdfResult(pageNumbers, foundNames, notFoundNames, pdfBytes)
         <strong>Não encontrados:</strong> ${notFoundText}
       </div>
     </div>
-    <a class="download-link" href="${url}" download="pontos_filtrados.pdf">
+
+    <a
+      class="download-link"
+      href="${url}"
+      download="${sanitizeFileName("pontos_filtrados")}.pdf"
+    >
       Baixar PDF
     </a>
   `;
 
+  resultsList.innerHTML = "";
   resultsList.appendChild(card);
 }
 
@@ -282,7 +291,7 @@ async function processPdf() {
       return;
     }
 
-    setProgress(80, "Gerando PDF único");
+    setProgress(82, "Gerando PDF único");
     const resultBytes = await buildPdf(sourceBytes, uniquePages);
 
     renderSinglePdfResult(uniquePages, foundNames, notFoundNames, resultBytes);
@@ -315,7 +324,7 @@ pdfFile.addEventListener("change", (event) => {
 });
 
 exampleBtn.addEventListener("click", () => {
-  namesInput.value = `ADELEIDE DE PAULA TIBURCIO DA SILVA, ADILSON RAMOS DA SILVA, ALICIA JULIA PEREIRA DE AMORIM`;
+  namesInput.value = `ALAN TURING`;
 });
 
 processBtn.addEventListener("click", processPdf);
