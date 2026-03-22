@@ -62,7 +62,7 @@ function sanitizeFileName(name) {
 function parseNames(text) {
   return [...new Set(
     text
-      .split("\n")
+      .split(/\n|,/g)
       .map(name => name.trim())
       .filter(Boolean)
   )];
@@ -77,11 +77,12 @@ function createMatcher(name) {
     match(text) {
       if (text.includes(normalized)) return true;
 
-      const strongParts = parts.filter(p => p.length >= 3);
+      const strongParts = parts.filter(part => part.length >= 3);
       if (!strongParts.length) return false;
 
-      const found = strongParts.filter(part => text.includes(part)).length;
-      return found === strongParts.length;
+      const foundCount = strongParts.filter(part => text.includes(part)).length;
+
+      return foundCount === strongParts.length;
     }
   };
 }
@@ -91,7 +92,8 @@ function clearResults() {
 }
 
 function setFile(file) {
-  const isPdf = file &&
+  const isPdf =
+    file &&
     (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
 
   if (!isPdf) {
@@ -108,21 +110,14 @@ function setFile(file) {
   setStatus("PDF carregado");
 }
 
-/**
- * Cria uma cópia real dos bytes para evitar ArrayBuffer detached.
- */
 function cloneUint8(uint8) {
   return new Uint8Array(uint8);
 }
 
 async function readPdf(file) {
-  // Lê o arquivo uma vez
   const originalBuffer = await file.arrayBuffer();
   const originalBytes = new Uint8Array(originalBuffer);
 
-  // Cria cópias separadas:
-  // uma para leitura via PDF.js
-  // outra para montagem via pdf-lib
   const pdfJsBytes = cloneUint8(originalBytes);
   const pdfLibBytes = cloneUint8(originalBytes);
 
@@ -134,7 +129,10 @@ async function readPdf(file) {
   const pages = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {
-    setProgress(Math.round((i / pdf.numPages) * 45), `Lendo página ${i} de ${pdf.numPages}`);
+    setProgress(
+      Math.round((i / pdf.numPages) * 45),
+      `Lendo página ${i} de ${pdf.numPages}`
+    );
 
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
@@ -146,15 +144,18 @@ async function readPdf(file) {
     });
   }
 
-  return { sourceBytes: pdfLibBytes, pages };
+  return {
+    sourceBytes: pdfLibBytes,
+    pages
+  };
 }
 
 function mapNamesToPages(names, pages) {
   const matchers = names.map(createMatcher);
   const map = {};
 
-  matchers.forEach(m => {
-    map[m.original] = [];
+  matchers.forEach(matcher => {
+    map[matcher.original] = [];
   });
 
   pages.forEach(page => {
@@ -171,13 +172,11 @@ function mapNamesToPages(names, pages) {
 async function buildPdf(sourceBytes, pageNumbers) {
   const { PDFDocument } = PDFLib;
 
-  // Faz mais uma cópia defensiva antes de carregar no pdf-lib
   const safeBytes = cloneUint8(sourceBytes);
-
   const sourceDoc = await PDFDocument.load(safeBytes);
   const newDoc = await PDFDocument.create();
 
-  const indexes = pageNumbers.map(n => n - 1);
+  const indexes = pageNumbers.map(number => number - 1);
   const copiedPages = await newDoc.copyPages(sourceDoc, indexes);
 
   copiedPages.forEach(page => newDoc.addPage(page));
@@ -185,21 +184,34 @@ async function buildPdf(sourceBytes, pageNumbers) {
   return await newDoc.save();
 }
 
-function renderDownload(name, pageNumbers, pdfBytes) {
+function renderSinglePdfResult(pageNumbers, foundNames, notFoundNames, pdfBytes) {
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
   const card = document.createElement("div");
   card.className = "result-card";
+
+  const foundNamesText = foundNames.length
+    ? foundNames.map(item => `${item.name} (${item.pages.join(", ")})`).join(" | ")
+    : "Nenhum nome encontrado";
+
+  const notFoundText = notFoundNames.length
+    ? notFoundNames.join(", ")
+    : "Nenhum";
+
   card.innerHTML = `
     <div>
-      <div class="result-name">${name}</div>
+      <div class="result-name">PDF único gerado</div>
       <div class="result-meta">
-        ${pageNumbers.length} página(s)<br>
-        Páginas: ${pageNumbers.join(", ")}
+        ${pageNumbers.length} página(s) no total<br>
+        Páginas: ${pageNumbers.join(", ")}<br>
+        ${foundNames.length} nome(s) encontrado(s)<br>
+        ${notFoundNames.length} nome(s) não encontrado(s)<br><br>
+        <strong>Encontrados:</strong> ${foundNamesText}<br>
+        <strong>Não encontrados:</strong> ${notFoundText}
       </div>
     </div>
-    <a class="download-link" href="${url}" download="${sanitizeFileName(name)}.pdf">
+    <a class="download-link" href="${url}" download="pontos_filtrados.pdf">
       Baixar PDF
     </a>
   `;
@@ -238,37 +250,44 @@ async function processPdf() {
 
     const map = mapNamesToPages(names, pages);
 
-    let generated = 0;
+    let allPages = [];
+    const foundNames = [];
+    const notFoundNames = [];
 
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       const pageNumbers = [...new Set(map[name])].sort((a, b) => a - b);
 
-      setProgress(
-        50 + Math.round(((i + 1) / names.length) * 50),
-        `Gerando arquivo de ${name}`
-      );
+      if (pageNumbers.length > 0) {
+        foundNames.push({
+          name,
+          pages: pageNumbers
+        });
 
-      if (!pageNumbers.length) {
+        allPages.push(...pageNumbers);
+        log(`Nome encontrado: ${name} | páginas: ${pageNumbers.join(", ")}`, "success");
+      } else {
+        notFoundNames.push(name);
         log(`Nome não encontrado: ${name}`, "warning");
-        continue;
       }
-
-      const resultBytes = await buildPdf(sourceBytes, pageNumbers);
-      renderDownload(name, pageNumbers, resultBytes);
-      log(`PDF criado para ${name}`, "success");
-      generated++;
     }
 
-    if (generated === 0) {
+    const uniquePages = [...new Set(allPages)].sort((a, b) => a - b);
+
+    if (!uniquePages.length) {
       clearResults();
-      log("Nenhum nome foi encontrado no PDF. Se o arquivo for escaneado, será preciso OCR.", "warning");
+      log("Nenhuma página encontrada para os nomes informados.", "warning");
       setStatus("Sem resultados");
       setProgress(100, "Concluído sem resultados");
       return;
     }
 
-    log(`Finalizado com ${generated} arquivo(s) gerado(s).`, "success");
+    setProgress(80, "Gerando PDF único");
+    const resultBytes = await buildPdf(sourceBytes, uniquePages);
+
+    renderSinglePdfResult(uniquePages, foundNames, notFoundNames, resultBytes);
+
+    log(`PDF único criado com ${uniquePages.length} página(s).`, "success");
     setStatus("Concluído");
     setProgress(100, "Concluído");
   } catch (error) {
@@ -296,9 +315,7 @@ pdfFile.addEventListener("change", (event) => {
 });
 
 exampleBtn.addEventListener("click", () => {
-  namesInput.value = `MARIA SILVA
-JOAO PEDRO
-ANA CLARA`;
+  namesInput.value = `ADELEIDE DE PAULA TIBURCIO DA SILVA, ADILSON RAMOS DA SILVA, ALICIA JULIA PEREIRA DE AMORIM`;
 });
 
 processBtn.addEventListener("click", processPdf);
