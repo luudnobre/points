@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Separador de Pontos RH</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"></script>
+
+  <!-- PDF-LIB -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="card hero-card">
+      <div class="hero-top">
+        <div>
+          <p class="eyebrow">RH • Separador inteligente de pontos</p>
+          <h1>Upa o PDF e separa por nome</h1>
+          <p class="subtitle">
+            Sistema local, responsivo e acessível para organizar folhas de ponto com rapidez.
+          </p>
+        </div>
+        <div class="status-badge" id="appStatus">Pronto</div>
+      </div>
+    </section>
+
+    <section class="card grid-two">
+      <div class="panel">
+        <label class="label" for="pdfFile">PDF completo</label>
+
+        <div class="upload-area" id="uploadArea">
+          <input type="file" id="pdfFile" accept="application/pdf" />
+          <div class="upload-content">
+            <span class="upload-icon">↑</span>
+            <p class="upload-title">Toque ou arraste o PDF aqui</p>
+            <p class="upload-text">Compatível com desktop, iPad e celular</p>
+          </div>
+        </div>
+
+        <div class="file-preview" id="filePreview">
+          <span>Nenhum arquivo selecionado</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label class="label" for="namesInput">Nomes para separar</label>
+        <textarea
+          id="namesInput"
+          placeholder="Digite um nome por linha&#10;ou separe por vírgula&#10;&#10;Exemplo:&#10;Maria Silva&#10;João Pedro Santos"
+          rows="10"
+        ></textarea>
+
+        <div class="helper-row">
+          <button class="ghost-btn" id="loadExampleBtn">Carregar exemplo</button>
+          <button class="ghost-btn" id="clearNamesBtn">Limpar nomes</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="chips-header">
+        <div>
+          <p class="eyebrow">Pré-visualização</p>
+          <h2>Nomes captados</h2>
+        </div>
+        <span class="counter" id="nameCounter">0 nomes</span>
+      </div>
+
+      <div class="chips-container" id="chipsContainer">
+        <p class="empty-state">Os nomes digitados aparecerão aqui.</p>
+      </div>
+    </section>
+
+    <section class="card actions-card">
+      <div class="actions-wrap">
+        <button class="primary-btn" id="processBtn">Separar PDFs</button>
+        <button class="secondary-btn" id="resetBtn">Resetar</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text" id="progressText">Aguardando ação</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="result-header">
+        <div>
+          <p class="eyebrow">Resultado</p>
+          <h2>Arquivos separados</h2>
+        </div>
+      </div>
+
+      <div class="results-list" id="resultsList">
+        <p class="empty-state">Os PDFs gerados aparecerão aqui.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="result-header">
+        <div>
+          <p class="eyebrow">Log do sistema</p>
+          <h2>Leitura do PDF</h2>
+        </div>
+      </div>
+
+      <div class="log-box" id="logBox"></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
