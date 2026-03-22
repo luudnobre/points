@@ -1,39 +1,43 @@
-const pdfFileInput = document.getElementById("pdfFile");
-const pickFileBtn = document.getElementById("pickFileBtn");
-const filePreview = document.getElementById("filePreview");
+const pdfFile = document.getElementById("pdfFile");
 const namesInput = document.getElementById("namesInput");
 const processBtn = document.getElementById("processBtn");
 const resetBtn = document.getElementById("resetBtn");
+const exampleBtn = document.getElementById("exampleBtn");
+const fileInfo = document.getElementById("fileInfo");
 const resultsList = document.getElementById("resultsList");
 const logBox = document.getElementById("logBox");
 const progressFill = document.getElementById("progressFill");
 const progressText = document.getElementById("progressText");
+const statusBadge = document.getElementById("statusBadge");
 
 let selectedFile = null;
 
-// Worker do PDF.js compatível com a mesma versão
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-function log(message, type = "normal") {
-  const line = document.createElement("div");
-  line.textContent = `• ${message}`;
+function setStatus(text) {
+  statusBadge.textContent = text;
+}
 
-  if (type === "error") line.style.color = "#ff9c9c";
-  if (type === "success") line.style.color = "#8ef0b7";
-  if (type === "warning") line.style.color = "#ffd97d";
+function setProgress(percent, text) {
+  progressFill.style.width = `${percent}%`;
+  progressText.textContent = text;
+}
 
-  logBox.appendChild(line);
+function log(message, type = "") {
+  const div = document.createElement("div");
+  div.textContent = `• ${message}`;
+
+  if (type === "success") div.className = "log-success";
+  if (type === "warning") div.className = "log-warning";
+  if (type === "error") div.className = "log-error";
+
+  logBox.appendChild(div);
   logBox.scrollTop = logBox.scrollHeight;
 }
 
 function clearLog() {
   logBox.innerHTML = "";
-}
-
-function updateProgress(percent, text) {
-  progressFill.style.width = `${percent}%`;
-  progressText.textContent = text;
 }
 
 function normalizeText(text) {
@@ -55,78 +59,82 @@ function sanitizeFileName(name) {
     .trim();
 }
 
-function parseNames(raw) {
-  return raw
-    .split(/\n|,/g)
-    .map((n) => n.trim())
-    .filter(Boolean);
+function parseNames(text) {
+  return [...new Set(
+    text
+      .split("\n")
+      .map(name => name.trim())
+      .filter(Boolean)
+  )];
 }
 
-function setFile(file) {
-  if (!file) return;
-
-  const isPdf =
-    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-
-  if (!isPdf) {
-    log("O arquivo selecionado não é um PDF.", "error");
-    selectedFile = null;
-    filePreview.textContent = "Nenhum arquivo selecionado";
-    return;
-  }
-
-  selectedFile = file;
-  filePreview.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-  log(`PDF carregado: ${file.name}`, "success");
-}
-
-pickFileBtn.addEventListener("click", () => {
-  pdfFileInput.click();
-});
-
-pdfFileInput.addEventListener("change", (event) => {
-  const file = event.target.files?.[0];
-  if (file) {
-    setFile(file);
-  }
-});
-
-function createNameMatcher(name) {
+function createMatcher(name) {
   const normalized = normalizeText(name);
-  const words = normalized.split(" ").filter(Boolean);
+  const parts = normalized.split(" ").filter(Boolean);
 
   return {
     original: name,
-    normalized,
-    matches(pageText) {
-      if (pageText.includes(normalized)) return true;
+    match(text) {
+      if (text.includes(normalized)) return true;
 
-      let count = 0;
-      for (const word of words) {
-        if (word.length >= 3 && pageText.includes(word)) {
-          count++;
-        }
-      }
+      const strongParts = parts.filter(p => p.length >= 3);
+      if (!strongParts.length) return false;
 
-      return words.length > 0 && count === words.filter(w => w.length >= 3).length;
+      const found = strongParts.filter(part => text.includes(part)).length;
+      return found === strongParts.length;
     }
   };
 }
 
-async function readPdfText(file) {
-  const arrayBuffer = await file.arrayBuffer();
+function clearResults() {
+  resultsList.innerHTML = `<p class="empty">Os PDFs gerados aparecerão aqui.</p>`;
+}
 
-  const loadingTask = pdfjsLib.getDocument({
-    data: arrayBuffer
-  });
+function setFile(file) {
+  const isPdf = file &&
+    (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
 
+  if (!isPdf) {
+    selectedFile = null;
+    fileInfo.textContent = "Arquivo inválido. Escolha um PDF.";
+    log("O arquivo selecionado não é um PDF válido.", "error");
+    return;
+  }
+
+  selectedFile = file;
+  const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+  fileInfo.textContent = `${file.name} (${sizeMB} MB)`;
+  log(`Arquivo selecionado: ${file.name}`, "success");
+  setStatus("PDF carregado");
+}
+
+/**
+ * Cria uma cópia real dos bytes para evitar ArrayBuffer detached.
+ */
+function cloneUint8(uint8) {
+  return new Uint8Array(uint8);
+}
+
+async function readPdf(file) {
+  // Lê o arquivo uma vez
+  const originalBuffer = await file.arrayBuffer();
+  const originalBytes = new Uint8Array(originalBuffer);
+
+  // Cria cópias separadas:
+  // uma para leitura via PDF.js
+  // outra para montagem via pdf-lib
+  const pdfJsBytes = cloneUint8(originalBytes);
+  const pdfLibBytes = cloneUint8(originalBytes);
+
+  const loadingTask = pdfjsLib.getDocument({ data: pdfJsBytes });
   const pdf = await loadingTask.promise;
-  const pages = [];
 
   log(`PDF aberto com ${pdf.numPages} página(s).`, "success");
 
+  const pages = [];
+
   for (let i = 1; i <= pdf.numPages; i++) {
-    updateProgress(Math.round((i / pdf.numPages) * 40), `Lendo página ${i}/${pdf.numPages}`);
+    setProgress(Math.round((i / pdf.numPages) * 45), `Lendo página ${i} de ${pdf.numPages}`);
 
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
@@ -134,99 +142,111 @@ async function readPdfText(file) {
 
     pages.push({
       pageNumber: i,
-      raw: text,
-      normalized: normalizeText(text)
+      text: normalizeText(text)
     });
   }
 
-  return {
-    pdfBytes: arrayBuffer,
-    pages
-  };
+  return { sourceBytes: pdfLibBytes, pages };
 }
 
 function mapNamesToPages(names, pages) {
-  const matchers = names.map(createNameMatcher);
-  const result = {};
+  const matchers = names.map(createMatcher);
+  const map = {};
 
-  for (const matcher of matchers) {
-    result[matcher.original] = [];
-  }
+  matchers.forEach(m => {
+    map[m.original] = [];
+  });
 
-  for (const page of pages) {
-    for (const matcher of matchers) {
-      if (matcher.matches(page.normalized)) {
-        result[matcher.original].push(page.pageNumber);
+  pages.forEach(page => {
+    matchers.forEach(matcher => {
+      if (matcher.match(page.text)) {
+        map[matcher.original].push(page.pageNumber);
       }
-    }
-  }
+    });
+  });
 
-  return result;
+  return map;
 }
 
-async function buildPdfFromPages(sourcePdfBytes, pageNumbers) {
+async function buildPdf(sourceBytes, pageNumbers) {
   const { PDFDocument } = PDFLib;
-  const sourcePdf = await PDFDocument.load(sourcePdfBytes);
-  const newPdf = await PDFDocument.create();
+
+  // Faz mais uma cópia defensiva antes de carregar no pdf-lib
+  const safeBytes = cloneUint8(sourceBytes);
+
+  const sourceDoc = await PDFDocument.load(safeBytes);
+  const newDoc = await PDFDocument.create();
 
   const indexes = pageNumbers.map(n => n - 1);
-  const copiedPages = await newPdf.copyPages(sourcePdf, indexes);
+  const copiedPages = await newDoc.copyPages(sourceDoc, indexes);
 
-  copiedPages.forEach(page => newPdf.addPage(page));
+  copiedPages.forEach(page => newDoc.addPage(page));
 
-  return await newPdf.save();
+  return await newDoc.save();
 }
 
-function renderDownload(name, pageNumbers, bytes) {
-  const blob = new Blob([bytes], { type: "application/pdf" });
+function renderDownload(name, pageNumbers, pdfBytes) {
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
-  const item = document.createElement("div");
-  item.className = "result-item";
-  item.innerHTML = `
+  const card = document.createElement("div");
+  card.className = "result-card";
+  card.innerHTML = `
     <div>
-      <strong>${name}</strong>
-      <div class="result-meta">Páginas: ${pageNumbers.join(", ")}</div>
+      <div class="result-name">${name}</div>
+      <div class="result-meta">
+        ${pageNumbers.length} página(s)<br>
+        Páginas: ${pageNumbers.join(", ")}
+      </div>
     </div>
-    <a class="download-btn" href="${url}" download="${sanitizeFileName(name)}.pdf">Baixar</a>
+    <a class="download-link" href="${url}" download="${sanitizeFileName(name)}.pdf">
+      Baixar PDF
+    </a>
   `;
 
-  resultsList.appendChild(item);
+  resultsList.appendChild(card);
 }
 
 async function processPdf() {
   clearLog();
   resultsList.innerHTML = "";
-  updateProgress(0, "Iniciando");
+  setProgress(0, "Iniciando");
+  setStatus("Processando");
 
   const names = parseNames(namesInput.value);
 
   if (!selectedFile) {
-    log("Selecione um PDF primeiro.", "error");
+    log("Selecione um PDF antes de continuar.", "error");
+    setStatus("Erro");
+    setProgress(0, "Selecione um PDF");
     return;
   }
 
   if (!names.length) {
     log("Digite pelo menos um nome.", "error");
+    setStatus("Erro");
+    setProgress(0, "Digite os nomes");
     return;
   }
 
   try {
-    log("Lendo o PDF...");
-    const { pdfBytes, pages } = await readPdfText(selectedFile);
+    log("Iniciando leitura do PDF...");
+    const { sourceBytes, pages } = await readPdf(selectedFile);
 
-    updateProgress(50, "Buscando nomes nas páginas");
+    setProgress(50, "Buscando nomes nas páginas");
+    log("Procurando os nomes dentro do PDF...");
+
     const map = mapNamesToPages(names, pages);
 
-    let count = 0;
+    let generated = 0;
 
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       const pageNumbers = [...new Set(map[name])].sort((a, b) => a - b);
 
-      updateProgress(
+      setProgress(
         50 + Math.round(((i + 1) / names.length) * 50),
-        `Gerando ${name}`
+        `Gerando arquivo de ${name}`
       );
 
       if (!pageNumbers.length) {
@@ -234,34 +254,54 @@ async function processPdf() {
         continue;
       }
 
-      const bytes = await buildPdfFromPages(pdfBytes, pageNumbers);
-      renderDownload(name, pageNumbers, bytes);
+      const resultBytes = await buildPdf(sourceBytes, pageNumbers);
+      renderDownload(name, pageNumbers, resultBytes);
       log(`PDF criado para ${name}`, "success");
-      count++;
+      generated++;
     }
 
-    if (count === 0) {
-      resultsList.innerHTML = `<p class="empty-state">Nenhum nome encontrado no PDF.</p>`;
-      log("Nenhum nome foi localizado. Pode ser PDF escaneado.", "warning");
+    if (generated === 0) {
+      clearResults();
+      log("Nenhum nome foi encontrado no PDF. Se o arquivo for escaneado, será preciso OCR.", "warning");
+      setStatus("Sem resultados");
+      setProgress(100, "Concluído sem resultados");
+      return;
     }
 
-    updateProgress(100, "Concluído");
+    log(`Finalizado com ${generated} arquivo(s) gerado(s).`, "success");
+    setStatus("Concluído");
+    setProgress(100, "Concluído");
   } catch (error) {
     console.error(error);
-    log(`Erro ao processar PDF: ${error.message}`, "error");
-    updateProgress(0, "Erro");
+    log(`Erro ao processar o PDF: ${error.message}`, "error");
+    setStatus("Erro");
+    setProgress(0, "Erro no processamento");
   }
 }
 
 function resetAll() {
   selectedFile = null;
-  pdfFileInput.value = "";
+  pdfFile.value = "";
   namesInput.value = "";
-  filePreview.textContent = "Nenhum arquivo selecionado";
-  resultsList.innerHTML = `<p class="empty-state">Os PDFs separados aparecerão aqui.</p>`;
+  fileInfo.textContent = "Nenhum arquivo selecionado";
+  clearResults();
   clearLog();
-  updateProgress(0, "Aguardando ação");
+  setProgress(0, "Aguardando ação");
+  setStatus("Pronto");
 }
+
+pdfFile.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (file) setFile(file);
+});
+
+exampleBtn.addEventListener("click", () => {
+  namesInput.value = `MARIA SILVA
+JOAO PEDRO
+ANA CLARA`;
+});
 
 processBtn.addEventListener("click", processPdf);
 resetBtn.addEventListener("click", resetAll);
+
+clearResults();

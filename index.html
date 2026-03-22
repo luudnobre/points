@@ -3,57 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Separador de Pontos RH</title>
+  <title>RH • Separador de Pontos</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- PDF.js versão mais estável para uso direto em script -->
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <!-- PDF-LIB -->
+  <!-- pdf-lib -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body>
-  <main class="app-shell">
-    <section class="card hero-card">
-      <p class="eyebrow">RH • Separador inteligente</p>
-      <h1>Separar PDF por nomes</h1>
-      <p class="subtitle">
-        Faça upload do PDF completo e informe os nomes que deseja extrair.
-      </p>
-    </section>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <span class="tag">RH • sistema local</span>
+        <h1>Separador de PDF por nome</h1>
+        <p class="subtitle">
+          Faça upload do PDF completo, digite os nomes e gere os arquivos separados.
+        </p>
+      </div>
+      <div class="status" id="statusBadge">Pronto</div>
+    </header>
 
-    <section class="card grid-two">
-      <div class="panel">
-        <label class="label" for="pdfFile">Selecionar PDF</label>
+    <section class="card">
+      <div class="grid">
+        <div class="block">
+          <label class="label" for="pdfFile">PDF completo</label>
 
-        <div class="upload-box">
-          <input id="pdfFile" type="file" accept=".pdf,application/pdf" />
-          <button id="pickFileBtn" type="button" class="primary-btn">
-            Escolher PDF
-          </button>
-          <p class="upload-hint">Funciona melhor em Chrome, Edge ou Safari recente.</p>
+          <input id="pdfFile" class="file-input" type="file" accept=".pdf,application/pdf" />
+
+          <label for="pdfFile" class="upload-button">Selecionar PDF</label>
+
+          <div class="file-info" id="fileInfo">Nenhum arquivo selecionado</div>
         </div>
 
-        <div class="file-preview" id="filePreview">Nenhum arquivo selecionado</div>
-      </div>
+        <div class="block">
+          <label class="label" for="namesInput">Nomes para separar</label>
+          <textarea
+            id="namesInput"
+            placeholder="Digite um nome por linha
 
-      <div class="panel">
-        <label class="label" for="namesInput">Nomes</label>
-        <textarea
-          id="namesInput"
-          rows="10"
-          placeholder="Um nome por linha&#10;Exemplo:&#10;Maria Silva&#10;João Pedro"
-        ></textarea>
+Exemplo:
+MARIA SILVA
+JOAO PEDRO
+ANA CLARA"
+          ></textarea>
+        </div>
       </div>
     </section>
 
     <section class="card">
-      <div class="actions-wrap">
-        <button class="primary-btn" id="processBtn" type="button">Separar PDFs</button>
-        <button class="secondary-btn" id="resetBtn" type="button">Limpar</button>
+      <div class="actions">
+        <button id="processBtn" class="btn primary">Separar PDFs</button>
+        <button id="resetBtn" class="btn secondary">Limpar</button>
+        <button id="exampleBtn" class="btn ghost">Exemplo</button>
       </div>
 
-      <div class="progress-wrap">
+      <div class="progress-area">
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill"></div>
         </div>
@@ -62,17 +68,21 @@
     </section>
 
     <section class="card">
-      <h2>Resultados</h2>
+      <div class="section-head">
+        <h2>Resultados</h2>
+      </div>
       <div id="resultsList" class="results-list">
-        <p class="empty-state">Os PDFs separados aparecerão aqui.</p>
+        <p class="empty">Os PDFs gerados aparecerão aqui.</p>
       </div>
     </section>
 
     <section class="card">
-      <h2>Log</h2>
-      <div id="logBox" class="log-box"></div>
+      <div class="section-head">
+        <h2>Log</h2>
+      </div>
+      <div class="log-box" id="logBox"></div>
     </section>
-  </main>
+  </div>
 
   <script src="script.js"></script>
 </body>
