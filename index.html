@@ -8,7 +8,7 @@
   />
   <meta
     name="description"
-    content="Sistema local para RH separar páginas de PDF por nomes e gerar um único arquivo filtrado."
+    content="Sistema local de RH para separar folhas de ponto em PDF por nomes, gerar PDF único ou arquivos individuais em ZIP."
   />
   <meta name="theme-color" content="#07101c" />
 
@@ -16,28 +16,40 @@
 
   <link
     rel="icon"
-    href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="52">💻</text></svg>'
+    href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="52">📄</text></svg>'
   />
 
   <link rel="stylesheet" href="style.css" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-  <div class="app">
+  <div class="app-shell">
     <header class="topbar">
       <div class="topbar-content">
-        <span class="tag">RH • sistema pontos automático
-        </span>
+        <span class="tag">RH • sistema pontos automático</span>
 
         <h1>Separador de PDF por nomes</h1>
 
         <p class="subtitle">
-          Faça upload do PDF completo, informe os nomes desejados e gere um
-          único PDF com todas as páginas encontradas, de forma rápida,
-          organizada e acessível.
+          Envie o PDF completo da folha de ponto, informe os nomes dos colaboradores
+          e escolha se deseja gerar um PDF único filtrado ou um ZIP com PDFs separados
+          por colaborador.
         </p>
+
+        <div class="hero-meta" aria-label="Informações do sistema">
+          <div class="hero-pill">
+            <span class="hero-pill-label">Data de hoje</span>
+            <strong id="todayDate">Carregando...</strong>
+          </div>
+
+          <div class="hero-pill">
+            <span class="hero-pill-label">Processamento</span>
+            <strong>100% local no navegador</strong>
+          </div>
+        </div>
       </div>
 
       <div class="status-panel">
@@ -46,120 +58,244 @@
       </div>
     </header>
 
-    <section class="card">
-      <div class="section-head">
-        <h2>Entrada de dados</h2>
-      </div>
-
-      <div class="grid">
-        <div class="block">
-          <label class="label" for="pdfFile">PDF completo</label>
-
-          <input
-            id="pdfFile"
-            class="file-input"
-            type="file"
-            accept=".pdf,application/pdf"
-          />
-
-          <label for="pdfFile" class="upload-button">
-            Selecionar PDF
-          </label>
-
-          <div class="file-info" id="fileInfo">
-            Nenhum arquivo selecionado
+    <main class="app">
+      <section class="card mode-card" aria-label="Escolha o tipo de saída">
+        <div class="section-head compact">
+          <div>
+            <h2>Modo de geração</h2>
+            <p class="section-caption" id="modeDescription">
+              Gere um único PDF com todas as páginas encontradas.
+            </p>
           </div>
-
-          <p class="field-hint">
-            Envie o arquivo completo com todas as folhas para filtrar depois
-            pelos nomes informados.
-          </p>
         </div>
 
-        <div class="block">
-          <label class="label" for="namesInput">Nomes para separar</label>
+        <div class="tabs" role="tablist" aria-label="Modos de processamento">
+          <button
+            id="tabSingle"
+            class="tab-button active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-mode="single"
+          >
+            <span class="tab-icon">📎</span>
+            <span>
+              <strong>PDF único</strong>
+              <small>Junta todas as páginas encontradas</small>
+            </span>
+          </button>
 
-          <textarea
-            id="namesInput"
-            placeholder="Digite os nomes aqui.
+          <button
+            id="tabZip"
+            class="tab-button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-mode="zip"
+          >
+            <span class="tab-icon">🗂️</span>
+            <span>
+              <strong>Colaboradores PDF</strong>
+              <small>Gera um ZIP com PDFs separados por nome</small>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Entrada de dados</h2>
+            <p class="section-caption">
+              Use o PDF completo como base. Os nomes podem ser colados um por linha ou separados por vírgula.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="block">
+            <label class="label" for="pdfFile">PDF completo</label>
+
+            <input
+              id="pdfFile"
+              class="file-input"
+              type="file"
+              accept=".pdf,application/pdf"
+            />
+
+            <label for="pdfFile" class="upload-button">
+              <span class="upload-icon">⬆</span>
+              Selecionar PDF base
+            </label>
+
+            <div class="file-info" id="fileInfo">
+              Nenhum arquivo selecionado
+            </div>
+
+            <p class="field-hint">
+              O arquivo original não é enviado para servidor. Ele é lido no próprio navegador.
+            </p>
+          </div>
+
+          <div class="block">
+            <div class="label-row">
+              <label class="label" for="namesInput">Nomes para separar</label>
+              <span class="counter" id="namesCounter">0 nomes</span>
+            </div>
+
+            <textarea
+              id="namesInput"
+              placeholder="Digite os nomes aqui.
 
 Você pode colocar:
 • um nome por linha
 • ou vários nomes separados por vírgula
 
 Exemplo:
-ALLAN TURING"
-            spellcheck="false"
-            autocomplete="off"
-            autocapitalize="characters"
-          ></textarea>
+ALAN TURING
+ADA LOVELACE"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="characters"
+            ></textarea>
 
-          <p class="field-hint">
-            O sistema vai procurar todos os nomes e juntar todas as páginas
-            encontradas em um único PDF final.
+            <p class="field-hint">
+              No modo Colaboradores PDF, cada nome encontrado vira um arquivo separado dentro do ZIP.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-grid" aria-label="Resumo e checklist">
+        <section class="card mini-card">
+          <div class="section-head compact">
+            <h2>Resumo</h2>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span>Nomes informados</span>
+              <strong id="statNames">0</strong>
+            </div>
+
+            <div class="stat-box">
+              <span>Encontrados</span>
+              <strong id="statFound">0</strong>
+            </div>
+
+            <div class="stat-box">
+              <span>Não encontrados</span>
+              <strong id="statNotFound">0</strong>
+            </div>
+
+            <div class="stat-box">
+              <span>Páginas usadas</span>
+              <strong id="statPages">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="card mini-card">
+          <div class="section-head compact">
+            <h2>Tasklist</h2>
+          </div>
+
+          <ul class="task-list" aria-label="Checklist de processamento">
+            <li data-task="upload" class="task-item">
+              <span class="task-check"></span>
+              <span>Selecionar PDF base</span>
+            </li>
+            <li data-task="names" class="task-item">
+              <span class="task-check"></span>
+              <span>Informar nomes dos colaboradores</span>
+            </li>
+            <li data-task="read" class="task-item">
+              <span class="task-check"></span>
+              <span>Ler páginas do PDF</span>
+            </li>
+            <li data-task="generate" class="task-item">
+              <span class="task-check"></span>
+              <span>Gerar arquivo final</span>
+            </li>
+          </ul>
+        </section>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Ações</h2>
+            <p class="section-caption">
+              Revise o PDF e a lista de nomes antes de processar.
+            </p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="processBtn" class="btn primary" type="button">
+            Gerar PDF único
+          </button>
+
+          <button id="resetBtn" class="btn secondary" type="button">
+            Limpar tudo
+          </button>
+
+          <button id="exampleBtn" class="btn ghost" type="button">
+            Carregar exemplo
+          </button>
+        </div>
+
+        <div class="progress-area">
+          <div
+            class="progress-bar"
+            role="progressbar"
+            aria-label="Progresso do processamento"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          >
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+
+          <p class="progress-text" id="progressText">Aguardando ação</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Resultado final</h2>
+            <p class="section-caption" id="resultCaption">
+              O PDF gerado aparecerá aqui depois do processamento.
+            </p>
+          </div>
+        </div>
+
+        <div id="resultsList" class="results-list">
+          <p class="empty">
+            O PDF gerado aparecerá aqui depois do processamento.
           </p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card">
-      <div class="section-head">
-        <h2>Ações</h2>
-      </div>
-
-      <div class="actions">
-        <button id="processBtn" class="btn primary" type="button">
-          Gerar PDF único
-        </button>
-
-        <button id="resetBtn" class="btn secondary" type="button">
-          Limpar
-        </button>
-
-        <button id="exampleBtn" class="btn ghost" type="button">
-          Carregar exemplo
-        </button>
-      </div>
-
-      <div class="progress-area">
-        <div
-          class="progress-bar"
-          role="progressbar"
-          aria-label="Progresso do processamento"
-          aria-valuemin="0"
-          aria-valuemax="100"
-        >
-          <div class="progress-fill" id="progressFill"></div>
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Log do processamento</h2>
+            <p class="section-caption">
+              Acompanhe exatamente quais nomes foram encontrados e em quais páginas.
+            </p>
+          </div>
         </div>
 
-        <p class="progress-text" id="progressText">Aguardando ação</p>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="section-head">
-        <h2>Resultado final</h2>
-      </div>
-
-      <div id="resultsList" class="results-list">
-        <p class="empty">
-          O PDF gerado aparecerá aqui depois do processamento.
-        </p>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="section-head">
-        <h2>Log do processamento</h2>
-      </div>
-
-      <div
-        class="log-box"
-        id="logBox"
-        aria-live="polite"
-        aria-label="Área de log do sistema"
-      ></div>
-    </section>
+        <div
+          class="log-box"
+          id="logBox"
+          aria-live="polite"
+          aria-label="Área de log do sistema"
+        ></div>
+      </section>
+    </main>
   </div>
 
   <footer class="footer">
